@@ -55,7 +55,7 @@ DS-Visual-Lab/
 │   ├── rtree.html
 │   ├── splay.html
 │   └── treap.html
-└── SEDA-B6(DS-RESEARCH-PAPER).pdf
+
 ```
 
 ---
