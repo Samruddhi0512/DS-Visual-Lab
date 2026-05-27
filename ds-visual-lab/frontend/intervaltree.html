@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Visual DSA Lab – Interval Tree</title>
+
+<style>
+/* ✨ Magical / dreamy pastel theme – ONLY CSS changed */
+
+body{
+    margin:0;
+    font-family:Arial;
+    background:linear-gradient(135deg,#fde2f3,#e0e7ff,#dcfce7);
+    background-attachment:fixed;
+}
+
+/* Glass header */
+header{
+    background:rgba(255,255,255,0.45);
+    backdrop-filter:blur(10px);
+    color:#312e81;
+    padding:12px 20px;
+    font-size:20px;
+    font-weight:bold;
+    border-bottom:1px solid rgba(255,255,255,0.6);
+}
+
+#container{
+    display:flex;
+    height:calc(100vh - 50px);
+}
+
+/* Glass panels */
+#leftPanel,
+#rightPanel{
+    background:rgba(255,255,255,0.65);
+    backdrop-filter:blur(12px);
+    padding:15px;
+    border:1px solid rgba(255,255,255,0.6);
+    box-shadow:0 12px 30px rgba(99,102,241,0.15);
+}
+
+#leftPanel{
+    width:260px;
+    border-right:none;
+}
+
+#rightPanel{
+    width:260px;
+    border-left:none;
+}
+
+/* Dreamy center panel */
+#centerPanel{
+    flex:1;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    background:radial-gradient(circle at top,#ffffffcc,#eef2ff,#fdf2f8);
+}
+
+/* Inputs */
+input{
+    width:100%;
+    padding:8px;
+    margin-top:8px;
+    border-radius:10px;
+    border:1px solid #c7d2fe;
+    background:rgba(255,255,255,0.85);
+    outline:none;
+}
+
+/* Magical buttons */
+button{
+    width:100%;
+    padding:9px;
+    margin-top:10px;
+    border-radius:12px;
+    border:none;
+    background:linear-gradient(135deg,#a5b4fc,#fbcfe8);
+    color:#312e81;
+    font-weight:700;
+    cursor:pointer;
+    box-shadow:0 6px 18px rgba(139,92,246,0.35);
+    transition:all 0.25s ease;
+}
+
+button:hover{
+    transform:translateY(-2px) scale(1.02);
+    box-shadow:0 10px 26px rgba(139,92,246,0.45);
+}
+
+/* Stats cards */
+.stat{
+    margin-bottom:10px;
+    padding:10px;
+    border-radius:12px;
+    background:linear-gradient(135deg,#eef2ff,#fdf2f8);
+    box-shadow:0 4px 12px rgba(0,0,0,0.08);
+    color:#312e81;
+    font-weight:600;
+}
+
+/* small note */
+small{
+    color:#4f46e5;
+    font-weight:600;
+}
+
+/* Magical canvas */
+#svgCanvas{
+    border:2px dashed #c7d2fe;
+    background:linear-gradient(180deg,#ffffff,#fdf4ff);
+    border-radius:18px;
+    box-shadow:
+        inset 0 0 25px rgba(167,139,250,0.15),
+        0 15px 35px rgba(99,102,241,0.18);
+}
+</style>
+</head>
+
+<body>
+
+<header>Visual Data-Structure Performance Laboratory – Interval Tree</header>
+
+<div id="container">
+
+<div id="leftPanel">
+<h3>Insert interval</h3>
+<input type="number" id="lowBox" placeholder="Low">
+<input type="number" id="highBox" placeholder="High">
+<button id="insertBtn">Insert Interval</button>
+
+<hr>
+
+<h3>Overlap search</h3>
+<input type="number" id="qlowBox" placeholder="Query Low">
+<input type="number" id="qhighBox" placeholder="Query High">
+<button id="searchBtn">Search Overlap</button>
+
+<small>Intervals are inclusive</small>
+</div>
+
+<div id="centerPanel">
+<svg id="svgCanvas" width="95%" height="95%"></svg>
+</div>
+
+<div id="rightPanel">
+<h3>Statistics</h3>
+<div class="stat">Visited nodes : <span id="visit">0</span></div>
+<div class="stat">Found : <span id="found">-</span></div>
+</div>
+
+</div>
+
+<script>
+
+const svg = document.getElementById("svgCanvas");
+const R = 18;
+
+let root = null;
+
+let path = [];
+let highlightIndex = -1;
+let playToken = 0;
+
+/* ------------ Node ------------ */
+
+function Node(low, high){
+    this.low = low;
+    this.high = high;
+    this.max = high;
+    this.left = null;
+    this.right = null;
+    this.x = 0;
+    this.y = 0;
+}
+
+/* ------------ helpers ------------ */
+
+function updateMax(n){
+    n.max = Math.max(
+        n.high,
+        n.left ? n.left.max : -Infinity,
+        n.right ? n.right.max : -Infinity
+    );
+}
+
+/* ------------ insert ------------ */
+
+function insert(n, low, high){
+
+    if(!n)
+        return new Node(low, high);
+
+    if(low < n.low)
+        n.left = insert(n.left, low, high);
+    else
+        n.right = insert(n.right, low, high);
+
+    updateMax(n);
+    return n;
+}
+
+/* ------------ overlap check ------------ */
+
+function overlap(a,b,c,d){
+    return a <= d && c <= b;
+}
+
+/* ------------ search overlap ------------ */
+
+function searchOverlap(n, ql, qh){
+
+    if(!n) return null;
+
+    path.push(n);
+
+    if(overlap(n.low, n.high, ql, qh))
+        return n;
+
+    if(n.left && n.left.max >= ql)
+        return searchOverlap(n.left, ql, qh);
+
+    return searchOverlap(n.right, ql, qh);
+}
+
+/* ------------ layout ------------ */
+
+function layout(n, d, minX, maxX){
+
+    if(!n) return;
+
+    n.x = (minX + maxX) / 2;
+    n.y = d*90 + 50;
+
+    layout(n.left , d+1, minX, n.x);
+    layout(n.right, d+1, n.x, maxX);
+}
+
+/* ------------ drawing ------------ */
+
+function line(x1,y1,x2,y2){
+
+    const dx=x2-x1,dy=y2-y1;
+    const dist=Math.sqrt(dx*dx+dy*dy);
+    if(!dist) return;
+
+    const sx=x1+dx*R/dist, sy=y1+dy*R/dist;
+    const ex=x2-dx*R/dist, ey=y2-dy*R/dist;
+
+    const l=document.createElementNS("http://www.w3.org/2000/svg","line");
+    l.setAttribute("x1",sx);
+    l.setAttribute("y1",sy);
+    l.setAttribute("x2",ex);
+    l.setAttribute("y2",ey);
+    l.setAttribute("stroke","#555");
+    svg.appendChild(l);
+}
+
+function highlighted(n){
+    if(highlightIndex<0) return false;
+    return path.slice(0,highlightIndex+1).includes(n);
+}
+
+function draw(n){
+
+    if(!n) return;
+
+    if(n.left) line(n.x,n.y,n.left.x,n.left.y);
+    if(n.right) line(n.x,n.y,n.right.x,n.right.y);
+
+    draw(n.left);
+    draw(n.right);
+
+    if(highlighted(n)){
+        const ring=document.createElementNS("http://www.w3.org/2000/svg","circle");
+        ring.setAttribute("cx",n.x);
+        ring.setAttribute("cy",n.y);
+        ring.setAttribute("r",R+7);
+        ring.setAttribute("fill","none");
+        ring.setAttribute("stroke","#6366f1");
+        ring.setAttribute("stroke-width","4");
+        svg.appendChild(ring);
+    }
+
+    const c=document.createElementNS("http://www.w3.org/2000/svg","circle");
+    c.setAttribute("cx",n.x);
+    c.setAttribute("cy",n.y);
+    c.setAttribute("r",R);
+    c.setAttribute("fill","#4f46e5");
+
+    const t=document.createElementNS("http://www.w3.org/2000/svg","text");
+    t.setAttribute("x",n.x);
+    t.setAttribute("y",n.y+5);
+    t.setAttribute("text-anchor","middle");
+    t.setAttribute("fill","white");
+    t.setAttribute("font-size","10");
+    t.textContent = `[${n.low},${n.high}] | ${n.max}`;
+
+    svg.appendChild(c);
+    svg.appendChild(t);
+}
+
+function redraw(){
+    svg.innerHTML="";
+    layout(root,0,50,svg.clientWidth-50);
+    draw(root);
+}
+
+/* ------------ animation ------------ */
+
+function play(){
+
+    playToken++;
+    const my = playToken;
+    highlightIndex = -1;
+
+    function step(){
+
+        if(my !== playToken) return;
+
+        highlightIndex++;
+
+        if(highlightIndex >= path.length){
+            setTimeout(()=>{
+                highlightIndex=-1;
+                redraw();
+            },400);
+            return;
+        }
+
+        redraw();
+        setTimeout(step,350);
+    }
+
+    step();
+}
+
+/* ------------ UI ------------ */
+
+insertBtn.onclick = ()=>{
+
+    const l = parseInt(lowBox.value);
+    const h = parseInt(highBox.value);
+
+    if(isNaN(l)||isNaN(h)||l>h) return;
+
+    root = insert(root, l, h);
+
+    path=[];
+    highlightIndex=-1;
+
+    redraw();
+};
+
+searchBtn.onclick = ()=>{
+
+    const ql = parseInt(qlowBox.value);
+    const qh = parseInt(qhighBox.value);
+
+    if(isNaN(ql)||isNaN(qh)||ql>qh) return;
+
+    path=[];
+    highlightIndex=-1;
+
+    const res = searchOverlap(root, ql, qh);
+
+    visit.textContent = path.length;
+    found.textContent = res ? `[${res.low},${res.high}]` : "None";
+
+    play();
+};
+
+</script>
+</body>
+</html>

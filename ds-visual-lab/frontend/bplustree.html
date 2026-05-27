@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Visual DSA Lab – B+ Tree</title>
+
+<style>
+/* ✨ Magical pastel background */
+body{
+    margin:0;
+    font-family:Arial;
+    background:linear-gradient(135deg,#fde2f3,#e0e7ff,#dcfce7);
+    background-attachment:fixed;
+}
+
+/* ✨ glassy header */
+header{
+    background:rgba(255,255,255,0.45);
+    backdrop-filter:blur(10px);
+    color:#312e81;
+    padding:12px 20px;
+    font-size:20px;
+    font-weight:bold;
+    border-bottom:1px solid rgba(255,255,255,0.6);
+}
+
+#container{
+    display:flex;
+    height:calc(100vh - 50px);
+}
+
+/* ✨ glass panels */
+#leftPanel,
+#rightPanel{
+    background:rgba(255,255,255,0.65);
+    backdrop-filter:blur(12px);
+    padding:15px;
+    border:1px solid rgba(255,255,255,0.6);
+    box-shadow:0 12px 30px rgba(99,102,241,0.15);
+}
+
+#leftPanel{
+    width:250px;
+    border-right:none;
+}
+
+#rightPanel{
+    width:260px;
+    border-left:none;
+}
+
+/* ✨ dreamy center panel */
+#centerPanel{
+    flex:1;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    background:radial-gradient(circle at top,#ffffffcc,#eef2ff,#fdf2f8);
+}
+
+/* inputs */
+input{
+    width:100%;
+    padding:8px;
+    margin-top:8px;
+    border-radius:10px;
+    border:1px solid #c7d2fe;
+    background:rgba(255,255,255,0.85);
+    outline:none;
+}
+
+/* ✨ glowing magical buttons */
+button{
+    width:100%;
+    padding:9px;
+    margin-top:10px;
+    border-radius:12px;
+    border:none;
+    background:linear-gradient(135deg,#a5b4fc,#fbcfe8);
+    color:#312e81;
+    font-weight:700;
+    cursor:pointer;
+    box-shadow:0 6px 18px rgba(139,92,246,0.35);
+    transition:all 0.25s ease;
+}
+
+button:hover{
+    transform:translateY(-2px) scale(1.02);
+    box-shadow:0 10px 26px rgba(139,92,246,0.45);
+}
+
+/* ✨ stats cards */
+.stat{
+    margin-bottom:10px;
+    padding:10px;
+    border-radius:12px;
+    background:linear-gradient(135deg,#eef2ff,#fdf2f8);
+    box-shadow:0 4px 12px rgba(0,0,0,0.08);
+    color:#312e81;
+    font-weight:600;
+}
+
+/* ✨ magical canvas */
+#svgCanvas{
+    border:2px dashed #c7d2fe;
+    background:linear-gradient(180deg,#ffffff,#fdf4ff);
+    border-radius:18px;
+    box-shadow:
+        inset 0 0 25px rgba(167,139,250,0.15),
+        0 15px 35px rgba(99,102,241,0.18);
+}
+</style>
+</head>
+
+<body>
+
+<header>Visual Data-Structure Performance Laboratory – B+ Tree (Order 4)</header>
+
+<div id="container">
+
+<div id="leftPanel">
+<h3>Operations</h3>
+<input type="number" id="valueBox" placeholder="Enter value">
+<button id="insertBtn">Insert</button>
+<button id="searchBtn">Search</button>
+</div>
+
+<div id="centerPanel">
+<svg id="svgCanvas" width="95%" height="95%"></svg>
+</div>
+
+<div id="rightPanel">
+<h3>Statistics</h3>
+<div class="stat">Node visits : <span id="visit">0</span></div>
+<div class="stat">Height : <span id="height">0</span></div>
+</div>
+
+</div>
+
+<script>
+
+const svg = document.getElementById("svgCanvas");
+
+const ORDER = 4;         // max children
+const MAX_KEYS = 3;     // order-1
+
+let root = null;
+let visitCount = 0;
+let highlight = null;
+
+/* ---------------- Node ---------------- */
+
+function Node(leaf){
+    this.leaf = leaf;
+    this.keys = [];
+    this.children = [];
+    this.parent = null;
+    this.next = null;
+    this.x=0;
+    this.y=0;
+}
+
+/* ---------------- height ---------------- */
+
+function height(n){
+    if(!n) return 0;
+    if(n.leaf) return 1;
+    return 1 + height(n.children[0]);
+}
+
+/* ---------------- find leaf ---------------- */
+
+function findLeaf(n, k){
+
+    visitCount++;
+    highlight = n;
+
+    if(n.leaf) return n;
+
+    let i=0;
+    while(i<n.keys.length && k>=n.keys[i]) i++;
+
+    return findLeaf(n.children[i], k);
+}
+
+/* ---------------- insert ---------------- */
+
+function insert(k){
+
+    if(!root){
+        root = new Node(true);
+        root.keys.push(k);
+        return;
+    }
+
+    let leaf = findLeaf(root, k);
+
+    leaf.keys.push(k);
+    leaf.keys.sort((a,b)=>a-b);
+
+    if(leaf.keys.length > MAX_KEYS)
+        splitLeaf(leaf);
+}
+
+/* ---------------- split leaf ---------------- */
+
+function splitLeaf(leaf){
+
+    const right = new Node(true);
+
+    const mid = Math.ceil(leaf.keys.length/2);
+
+    right.keys = leaf.keys.splice(mid);
+
+    right.next = leaf.next;
+    leaf.next = right;
+
+    right.parent = leaf.parent;
+
+    const promote = right.keys[0];
+
+    insertIntoParent(leaf, promote, right);
+}
+
+/* ---------------- insert into parent ---------------- */
+
+function insertIntoParent(left, key, right){
+
+    if(left === root){
+
+        const newRoot = new Node(false);
+        newRoot.keys = [key];
+        newRoot.children = [left, right];
+        left.parent = newRoot;
+        right.parent = newRoot;
+        root = newRoot;
+        return;
+    }
+
+    const parent = left.parent;
+
+    let idx = parent.children.indexOf(left) + 1;
+
+    parent.keys.splice(idx-1,0,key);
+    parent.children.splice(idx,0,right);
+    right.parent = parent;
+
+    if(parent.keys.length > MAX_KEYS)
+        splitInternal(parent);
+}
+
+/* ---------------- split internal ---------------- */
+
+function splitInternal(node){
+
+    const right = new Node(false);
+
+    const mid = 1;
+    const promote = node.keys[mid];
+
+    right.keys = node.keys.splice(mid+1);
+    node.keys.splice(mid);
+
+    right.children = node.children.splice(mid+1);
+
+    for(let c of right.children)
+        c.parent = right;
+
+    right.parent = node.parent;
+
+    insertIntoParent(node, promote, right);
+}
+
+/* ---------------- search ---------------- */
+
+function search(k){
+
+    visitCount=0;
+    highlight=null;
+
+    if(!root) return;
+
+    let leaf = findLeaf(root,k);
+}
+
+/* ---------------- layout ---------------- */
+
+function layout(n,depth,minX,maxX){
+
+    n.x = (minX+maxX)/2;
+    n.y = depth*90 + 40;
+
+    if(!n.leaf){
+
+        const gap=(maxX-minX)/n.children.length;
+        let s=minX;
+
+        for(let c of n.children){
+            layout(c,depth+1,s,s+gap);
+            s+=gap;
+        }
+    }
+}
+
+/* ---------------- draw ---------------- */
+
+function drawNode(n){
+
+    const w = n.keys.length*30 + 10;
+    const x = n.x - w/2;
+    const y = n.y;
+
+    const r=document.createElementNS("http://www.w3.org/2000/svg","rect");
+    r.setAttribute("x",x);
+    r.setAttribute("y",y);
+    r.setAttribute("width",w);
+    r.setAttribute("height",30);
+    r.setAttribute("rx","6");
+
+    if(n===highlight) r.setAttribute("fill","#f59e0b");
+    else if(n.leaf) r.setAttribute("fill","#4f46e5");
+    else r.setAttribute("fill","#6366f1");
+
+    svg.appendChild(r);
+
+    for(let i=0;i<n.keys.length;i++){
+        const t=document.createElementNS("http://www.w3.org/2000/svg","text");
+        t.setAttribute("x",x+15+i*30);
+        t.setAttribute("y",y+20);
+        t.setAttribute("text-anchor","middle");
+        t.setAttribute("fill","white");
+        t.setAttribute("font-size","12");
+        t.textContent=n.keys[i];
+        svg.appendChild(t);
+    }
+
+    if(!n.leaf){
+
+        for(let c of n.children){
+
+            const l=document.createElementNS("http://www.w3.org/2000/svg","line");
+            l.setAttribute("x1",n.x);
+            l.setAttribute("y1",y+30);
+            l.setAttribute("x2",c.x);
+            l.setAttribute("y2",c.y);
+            l.setAttribute("stroke","#555");
+            svg.appendChild(l);
+
+            drawNode(c);
+        }
+    }
+}
+
+/* ---------------- redraw ---------------- */
+
+function redraw(){
+
+    svg.innerHTML="";
+    if(!root) return;
+
+    layout(root,0,40,svg.clientWidth-40);
+    drawNode(root);
+
+    heightBox.textContent = height(root);
+}
+
+/* ---------------- UI ---------------- */
+
+insertBtn.onclick=()=>{
+
+    const v=parseInt(valueBox.value);
+    if(isNaN(v)) return;
+
+    visitCount=0;
+    highlight=null;
+
+    insert(v);
+
+    redraw();
+};
+
+searchBtn.onclick=()=>{
+
+    const v=parseInt(valueBox.value);
+    if(isNaN(v)) return;
+
+    search(v);
+
+    visit.textContent = visitCount;
+    redraw();
+};
+
+</script>
+</body>
+</html>

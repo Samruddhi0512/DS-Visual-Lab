@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Visual DSA Lab – AVL Tree</title>
+
+<style>
+/* ✨ Magical pastel background */
+body{
+    margin:0;
+    font-family:Arial;
+    background:linear-gradient(135deg,#fde2f3,#e0e7ff,#dcfce7);
+    background-attachment:fixed;
+}
+
+/* ✨ glassy header */
+header{
+    background:rgba(255,255,255,0.45);
+    backdrop-filter:blur(10px);
+    color:#312e81;
+    padding:12px 20px;
+    font-size:20px;
+    font-weight:bold;
+    border-bottom:1px solid rgba(255,255,255,0.6);
+}
+
+/* layout */
+#container{
+    display:flex;
+    height:calc(100vh - 50px);
+}
+
+/* ✨ magical glass panels */
+#leftPanel,
+#rightPanel{
+    background:rgba(255,255,255,0.65);
+    backdrop-filter:blur(12px);
+    padding:15px;
+    border:1px solid rgba(255,255,255,0.6);
+    box-shadow:0 12px 30px rgba(99,102,241,0.15);
+}
+
+#leftPanel{
+    width:250px;
+    border-right:none;
+}
+
+#rightPanel{
+    width:260px;
+    border-left:none;
+}
+
+/* ✨ dreamy center */
+#centerPanel{
+    flex:1;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    background:radial-gradient(circle at top,#ffffffcc,#eef2ff,#fdf2f8);
+}
+
+/* inputs */
+input,select{
+    width:100%;
+    padding:8px;
+    margin-top:8px;
+    border-radius:10px;
+    border:1px solid #c7d2fe;
+    background:rgba(255,255,255,0.85);
+    outline:none;
+}
+
+/* ✨ glowing magical buttons */
+button{
+    width:100%;
+    padding:9px;
+    margin-top:10px;
+    border-radius:12px;
+    border:none;
+    background:linear-gradient(135deg,#a5b4fc,#fbcfe8);
+    color:#312e81;
+    font-weight:700;
+    cursor:pointer;
+    box-shadow:0 6px 18px rgba(139,92,246,0.35);
+    transition:all 0.25s ease;
+}
+
+button:hover{
+    transform:translateY(-2px) scale(1.02);
+    box-shadow:0 10px 26px rgba(139,92,246,0.45);
+}
+
+/* ✨ stats cards */
+.stat{
+    margin-bottom:10px;
+    padding:10px;
+    border-radius:12px;
+    background:linear-gradient(135deg,#eef2ff,#fdf2f8);
+    box-shadow:0 4px 12px rgba(0,0,0,0.08);
+    color:#312e81;
+    font-weight:600;
+}
+
+/* ✨ magical canvas */
+#svgCanvas{
+    border:2px dashed #c7d2fe;
+    background:linear-gradient(180deg,#ffffff,#fdf4ff);
+    border-radius:18px;
+    box-shadow:
+        inset 0 0 25px rgba(167,139,250,0.15),
+        0 15px 35px rgba(99,102,241,0.18);
+}
+</style>
+</head>
+
+<body>
+
+<header>Visual Data-Structure Performance Laboratory – Trees</header>
+
+<div id="container">
+
+<div id="leftPanel">
+
+<label><b>Tree Type</b></label>
+<select id="treeType">
+    <option value="AVL">AVL Tree</option>
+    <option value="BST">Binary Search Tree</option>
+</select>
+
+<h3>Operations</h3>
+
+<input type="number" id="valueBox" placeholder="Enter value">
+<button id="insertBtn">Insert</button>
+<button id="searchBtn">Search</button>
+<button id="deleteBtn">Delete</button>
+</div>
+
+<div id="centerPanel">
+<svg id="svgCanvas" width="90%" height="90%"></svg>
+</div>
+
+<div id="rightPanel">
+<h3>Statistics</h3>
+<div class="stat">Comparisons : <span id="cmp">0</span></div>
+<div class="stat">Rotations : <span id="rot">0</span></div>
+<div class="stat">Node visits : <span id="visit">0</span></div>
+<div class="stat">Height : <span id="height">0</span></div>
+</div>
+
+</div>
+
+<!-- ✅ Your entire JS below is unchanged -->
+
+<script>
+/* ------------- your original JS exactly same ------------- */
+
+const svg = document.getElementById("svgCanvas");
+const NODE_RADIUS = 18;
+
+const cmp = document.getElementById("cmp");
+const rot = document.getElementById("rot");
+const visit = document.getElementById("visit");
+const heightBox = document.getElementById("height");
+const treeType = document.getElementById("treeType");
+
+let root = null, rotationCount = 0;
+let prevPos = new Map();
+let fullPath = [], highlightIndex = -1;
+let playToken = 0;
+
+function Node(k){
+    this.key=k;
+    this.left=null;
+    this.right=null;
+    this.x=0;
+    this.y=0;
+}
+
+function height(n){
+    return n ? 1 + Math.max(height(n.left),height(n.right)) : 0;
+}
+
+function bal(n){
+    return n ? height(n.left)-height(n.right) : 0;
+}
+
+function rotateRight(y){
+    const x=y.left, t=x.right;
+    x.right=y; y.left=t;
+    rotationCount++;
+    return x;
+}
+
+function rotateLeft(x){
+    const y=x.right, t=y.left;
+    y.left=x; x.right=t;
+    rotationCount++;
+    return y;
+}
+
+function insertAVL(n,k,path){
+    if(!n){
+        let t=new Node(k);
+        path.push(t);
+        return t;
+    }
+
+    path.push(n);
+
+    if(k<n.key) n.left=insertAVL(n.left,k,path);
+    else if(k>n.key) n.right=insertAVL(n.right,k,path);
+    else return n;
+
+    let b=bal(n);
+
+    if(b>1 && k<n.left.key) return rotateRight(n);
+    if(b<-1 && k>n.right.key) return rotateLeft(n);
+    if(b>1 && k>n.left.key){ n.left=rotateLeft(n.left); return rotateRight(n); }
+    if(b<-1 && k<n.right.key){ n.right=rotateRight(n.right); return rotateLeft(n); }
+
+    return n;
+}
+
+function insertBST(n,k){
+    if(!n) return new Node(k);
+
+    if(k<n.key) n.left=insertBST(n.left,k);
+    else if(k>n.key) n.right=insertBST(n.right,k);
+
+    return n;
+}
+
+function searchTrace(n,k,p){
+    if(!n) return;
+    p.push(n);
+    if(k===n.key) return;
+    if(k<n.key) searchTrace(n.left,k,p);
+    else searchTrace(n.right,k,p);
+}
+
+function minNode(n){
+    while(n.left) n=n.left;
+    return n;
+}
+
+function deleteAVL(n,k,path){
+    if(!n) return n;
+
+    path.push(n);
+
+    if(k<n.key) n.left=deleteAVL(n.left,k,path);
+    else if(k>n.key) n.right=deleteAVL(n.right,k,path);
+    else{
+        if(!n.left || !n.right){
+            n = n.left ? n.left : n.right;
+        }else{
+            let t=minNode(n.right);
+            n.key=t.key;
+            n.right=deleteAVL(n.right,t.key,path);
+        }
+    }
+
+    if(!n) return n;
+
+    let b=bal(n);
+
+    if(b>1 && bal(n.left)>=0) return rotateRight(n);
+    if(b>1 && bal(n.left)<0){ n.left=rotateLeft(n.left); return rotateRight(n); }
+    if(b<-1 && bal(n.right)<=0) return rotateLeft(n);
+    if(b<-1 && bal(n.right)>0){ n.right=rotateRight(n.right); return rotateLeft(n); }
+
+    return n;
+}
+
+function deleteBST(n,k){
+    if(!n) return n;
+
+    if(k<n.key) n.left=deleteBST(n.left,k);
+    else if(k>n.key) n.right=deleteBST(n.right,k);
+    else{
+        if(!n.left) return n.right;
+        if(!n.right) return n.left;
+
+        let t=n.right;
+        while(t.left) t=t.left;
+
+        n.key=t.key;
+        n.right=deleteBST(n.right,t.key);
+    }
+
+    return n;
+}
+
+function layout(n,d,minX,maxX){
+    if(!n) return;
+    n.x=(minX+maxX)/2;
+    n.y=d*80+50;
+    layout(n.left,d+1,minX,n.x);
+    layout(n.right,d+1,n.x,maxX);
+}
+
+function line(x1,y1,x2,y2){
+    const dx=x2-x1,dy=y2-y1;
+    const d=Math.sqrt(dx*dx+dy*dy);
+    if(!d) return;
+
+    const sx=x1+dx*NODE_RADIUS/d, sy=y1+dy*NODE_RADIUS/d;
+    const ex=x2-dx*NODE_RADIUS/d, ey=y2-dy*NODE_RADIUS/d;
+
+    const l=document.createElementNS("http://www.w3.org/2000/svg","line");
+    l.setAttribute("x1",sx); l.setAttribute("y1",sy);
+    l.setAttribute("x2",ex); l.setAttribute("y2",ey);
+    l.setAttribute("stroke","#555");
+    svg.appendChild(l);
+}
+
+function highlighted(n){
+    if(highlightIndex<0) return false;
+    return fullPath.slice(0,highlightIndex+1).includes(n);
+}
+
+function draw(n){
+    if(!n) return;
+
+    if(n.left) line(n.x,n.y,n.left.x,n.left.y);
+    if(n.right) line(n.x,n.y,n.right.x,n.right.y);
+
+    draw(n.left);
+    draw(n.right);
+
+    let old = prevPos.get(n.key) || {x:n.x,y:n.y};
+
+    const c=document.createElementNS("http://www.w3.org/2000/svg","circle");
+    c.setAttribute("r",NODE_RADIUS);
+    c.setAttribute("fill",highlighted(n)?"#f59e0b":"#4f46e5");
+
+    const t=document.createElementNS("http://www.w3.org/2000/svg","text");
+    t.setAttribute("text-anchor","middle");
+    t.setAttribute("fill","white");
+    t.setAttribute("font-size","12");
+    t.textContent=n.key;
+
+    svg.appendChild(c);
+    svg.appendChild(t);
+
+    anim(c,"cx",old.x,n.x);
+    anim(c,"cy",old.y,n.y);
+    anim(t,"x",old.x,n.x);
+    anim(t,"y",old.y+5,n.y+5);
+}
+
+function anim(e,a,f,t){
+    e.setAttribute(a,f);
+    const an=document.createElementNS("http://www.w3.org/2000/svg","animate");
+    an.setAttribute("attributeName",a);
+    an.setAttribute("from",f);
+    an.setAttribute("to",t);
+    an.setAttribute("dur","0.3s");
+    an.setAttribute("fill","freeze");
+    e.appendChild(an);
+}
+
+function save(n){
+    if(!n) return;
+    prevPos.set(n.key,{x:n.x,y:n.y});
+    save(n.left);
+    save(n.right);
+}
+
+function redraw(){
+    svg.innerHTML="";
+    layout(root,0,50,svg.clientWidth-50);
+    draw(root);
+    heightBox.textContent = height(root);
+    rot.textContent = rotationCount;
+}
+
+function playPath(){
+    playToken++;
+    const myToken = playToken;
+    highlightIndex = -1;
+
+    function step(){
+        if(myToken !== playToken) return;
+        highlightIndex++;
+
+        if(highlightIndex >= fullPath.length){
+            setTimeout(()=>{
+                if(myToken !== playToken) return;
+                highlightIndex = -1;
+                redraw();
+            },400);
+            return;
+        }
+
+        redraw();
+        setTimeout(step,350);
+    }
+    step();
+}
+
+insertBtn.onclick = ()=>{
+    let v=parseInt(valueBox.value);
+    if(isNaN(v)) return;
+
+    save(root);
+
+    let p=[];
+    const mode = treeType.value;
+
+    if(mode==="AVL"){
+        root = insertAVL(root,v,p);
+    }else{
+        root = insertBST(root,v);
+        p=[];
+    }
+
+    fullPath = p;
+
+    cmp.textContent = Math.max(0,p.length-1);
+    visit.textContent = p.length;
+
+    redraw();
+    if(mode==="AVL") playPath();
+};
+
+searchBtn.onclick = ()=>{
+    const v = parseInt(valueBox.value);
+    if(isNaN(v)) return;
+
+    fullPath=[];
+    highlightIndex=-1;
+
+    const p=[];
+    searchTrace(root,v,p);
+
+    fullPath=p;
+
+    cmp.textContent=Math.max(0,p.length-1);
+    visit.textContent=p.length;
+
+    playPath();
+};
+
+deleteBtn.onclick = ()=>{
+    let v=parseInt(valueBox.value);
+    if(isNaN(v)) return;
+
+    save(root);
+
+    let p=[];
+    const mode = treeType.value;
+
+    if(mode==="AVL"){
+        root = deleteAVL(root,v,p);
+    }else{
+        root = deleteBST(root,v);
+        p=[];
+    }
+
+    fullPath = p;
+
+    cmp.textContent=Math.max(0,p.length-1);
+    visit.textContent=p.length;
+
+    redraw();
+    if(mode==="AVL") playPath();
+};
+
+</script>
+</body>
+</html>

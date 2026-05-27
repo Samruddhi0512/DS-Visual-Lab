@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Visual DSA Lab – Quad Tree</title>
+
+<style>
+/* ✨ Magical / dreamy pastel theme – ONLY CSS changed */
+
+body{
+    margin:0;
+    font-family:Arial;
+    background:linear-gradient(135deg,#fde2f3,#e0e7ff,#dcfce7);
+    background-attachment:fixed;
+}
+
+/* Glass header */
+header{
+    background:rgba(255,255,255,0.45);
+    backdrop-filter:blur(10px);
+    color:#312e81;
+    padding:12px 20px;
+    font-size:20px;
+    font-weight:bold;
+    border-bottom:1px solid rgba(255,255,255,0.6);
+}
+
+#container{
+    display:flex;
+    height:calc(100vh - 50px);
+}
+
+/* Glass panels */
+#leftPanel,
+#rightPanel{
+    background:rgba(255,255,255,0.65);
+    backdrop-filter:blur(12px);
+    padding:15px;
+    border:1px solid rgba(255,255,255,0.6);
+    box-shadow:0 12px 30px rgba(99,102,241,0.15);
+}
+
+#leftPanel{
+    width:260px;
+    border-right:none;
+}
+
+#rightPanel{
+    width:260px;
+    border-left:none;
+}
+
+/* Dreamy center panel */
+#centerPanel{
+    flex:1;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    background:radial-gradient(circle at top,#ffffffcc,#eef2ff,#fdf2f8);
+}
+
+/* Inputs */
+input{
+    width:100%;
+    padding:8px;
+    margin-top:8px;
+    border-radius:10px;
+    border:1px solid #c7d2fe;
+    background:rgba(255,255,255,0.85);
+    outline:none;
+}
+
+/* Magical buttons */
+button{
+    width:100%;
+    padding:9px;
+    margin-top:10px;
+    border-radius:12px;
+    border:none;
+    background:linear-gradient(135deg,#a5b4fc,#fbcfe8);
+    color:#312e81;
+    font-weight:700;
+    cursor:pointer;
+    box-shadow:0 6px 18px rgba(139,92,246,0.35);
+    transition:all 0.25s ease;
+}
+
+button:hover{
+    transform:translateY(-2px) scale(1.02);
+    box-shadow:0 10px 26px rgba(139,92,246,0.45);
+}
+
+/* Stats cards */
+.stat{
+    margin-bottom:10px;
+    padding:10px;
+    border-radius:12px;
+    background:linear-gradient(135deg,#eef2ff,#fdf2f8);
+    box-shadow:0 4px 12px rgba(0,0,0,0.08);
+    color:#312e81;
+    font-weight:600;
+}
+
+/* small note */
+small{
+    color:#4f46e5;
+    font-weight:600;
+}
+
+/* Magical canvas */
+#canvas{
+    background:linear-gradient(180deg,#ffffff,#fdf4ff);
+    border:2px dashed #c7d2fe;
+    border-radius:18px;
+    box-shadow:
+        inset 0 0 25px rgba(167,139,250,0.15),
+        0 15px 35px rgba(99,102,241,0.18);
+}
+</style>
+</head>
+
+<body>
+
+<header>Visual Data-Structure Performance Laboratory – Quad Tree</header>
+
+<div id="container">
+
+<div id="leftPanel">
+<h3>Insert Point</h3>
+
+<input type="number" id="xBox" placeholder="X (0–600)">
+<input type="number" id="yBox" placeholder="Y (0–600)">
+<button id="insertBtn">Insert Point</button>
+
+<hr>
+
+<h3>Range Search</h3>
+<input type="number" id="rx" placeholder="Range X">
+<input type="number" id="ry" placeholder="Range Y">
+<input type="number" id="rw" placeholder="Width">
+<input type="number" id="rh" placeholder="Height">
+
+<button id="rangeBtn">Search in Range</button>
+
+<small>Canvas size = 600 × 600</small>
+</div>
+
+<div id="centerPanel">
+<canvas id="canvas" width="600" height="600"></canvas>
+</div>
+
+<div id="rightPanel">
+<h3>Statistics</h3>
+<div class="stat">Total points : <span id="cnt">0</span></div>
+<div class="stat">Found in range : <span id="found">0</span></div>
+</div>
+
+</div>
+
+<script>
+
+/* ✅ Your original JavaScript – unchanged */
+
+const canvas = document.getElementById("canvas");
+const ctx = canvas.getContext("2d");
+
+const CAPACITY = 4;
+
+let foundPoints = [];
+
+/* ---------- Rectangle ---------- */
+
+function Rect(x,y,w,h){
+    this.x=x; this.y=y; this.w=w; this.h=h;
+}
+
+Rect.prototype.contains = function(p){
+    return (
+        p.x >= this.x &&
+        p.x <= this.x + this.w &&
+        p.y >= this.y &&
+        p.y <= this.y + this.h
+    );
+};
+
+Rect.prototype.intersects = function(r){
+    return !(
+        r.x > this.x + this.w ||
+        r.x + r.w < this.x ||
+        r.y > this.y + this.h ||
+        r.y + r.h < this.y
+    );
+};
+
+/* ---------- Point ---------- */
+
+function Point(x,y){
+    this.x=x; this.y=y;
+}
+
+/* ---------- Quad Tree ---------- */
+
+function QuadTree(boundary){
+    this.boundary = boundary;
+    this.points = [];
+    this.divided = false;
+}
+
+QuadTree.prototype.subdivide = function(){
+
+    const x=this.boundary.x;
+    const y=this.boundary.y;
+    const w=this.boundary.w/2;
+    const h=this.boundary.h/2;
+
+    this.ne = new QuadTree(new Rect(x+w,y,w,h));
+    this.nw = new QuadTree(new Rect(x,y,w,h));
+    this.se = new QuadTree(new Rect(x+w,y+h,w,h));
+    this.sw = new QuadTree(new Rect(x,y+h,w,h));
+
+    this.divided = true;
+};
+
+QuadTree.prototype.insert = function(p){
+
+    if(!this.boundary.contains(p)) return false;
+
+    if(this.points.length < CAPACITY){
+        this.points.push(p);
+        return true;
+    }
+
+    if(!this.divided) this.subdivide();
+
+    return (
+        this.ne.insert(p) ||
+        this.nw.insert(p) ||
+        this.se.insert(p) ||
+        this.sw.insert(p)
+    );
+};
+
+QuadTree.prototype.query = function(range, found){
+
+    if(!this.boundary.intersects(range))
+        return;
+
+    for(let p of this.points){
+        if(range.contains(p))
+            found.push(p);
+    }
+
+    if(this.divided){
+        this.ne.query(range,found);
+        this.nw.query(range,found);
+        this.se.query(range,found);
+        this.sw.query(range,found);
+    }
+};
+
+/* ---------- Drawing ---------- */
+
+function drawTree(qt){
+
+    const b = qt.boundary;
+
+    ctx.strokeStyle = "#999";
+    ctx.strokeRect(b.x,b.y,b.w,b.h);
+
+    for(let p of qt.points){
+        ctx.fillStyle = "#4f46e5";
+        ctx.beginPath();
+        ctx.arc(p.x,p.y,4,0,Math.PI*2);
+        ctx.fill();
+    }
+
+    if(qt.divided){
+        drawTree(qt.ne);
+        drawTree(qt.nw);
+        drawTree(qt.se);
+        drawTree(qt.sw);
+    }
+}
+
+function drawFound(){
+    for(let p of foundPoints){
+        ctx.fillStyle = "#f59e0b";
+        ctx.beginPath();
+        ctx.arc(p.x,p.y,6,0,Math.PI*2);
+        ctx.fill();
+    }
+}
+
+/* ---------- Main ---------- */
+
+let boundary = new Rect(0,0,600,600);
+let qt = new QuadTree(boundary);
+let allPoints = [];
+
+function redraw(){
+
+    ctx.clearRect(0,0,600,600);
+    drawTree(qt);
+    drawFound();
+
+    document.getElementById("cnt").textContent = allPoints.length;
+    document.getElementById("found").textContent = foundPoints.length;
+}
+
+/* ---------- UI ---------- */
+
+insertBtn.onclick = ()=>{
+
+    const x = parseInt(xBox.value);
+    const y = parseInt(yBox.value);
+
+    if(isNaN(x)||isNaN(y)) return;
+    if(x<0||x>600||y<0||y>600) return;
+
+    const p = new Point(x,y);
+    allPoints.push(p);
+    qt.insert(p);
+
+    foundPoints = [];
+    redraw();
+};
+
+rangeBtn.onclick = ()=>{
+
+    const x = parseInt(rx.value);
+    const y = parseInt(ry.value);
+    const w = parseInt(rw.value);
+    const h = parseInt(rh.value);
+
+    if(isNaN(x)||isNaN(y)||isNaN(w)||isNaN(h)) return;
+
+    const range = new Rect(x,y,w,h);
+
+    foundPoints = [];
+    qt.query(range, foundPoints);
+
+    redraw();
+
+    ctx.strokeStyle = "#f59e0b";
+    ctx.lineWidth = 2;
+    ctx.strokeRect(x,y,w,h);
+};
+
+redraw();
+
+</script>
+</body>
+</html>

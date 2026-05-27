@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Visual Data Structure Laboratory</title>
+
+<style>
+body{
+    margin:0;
+    font-family:Arial, Helvetica, sans-serif;
+    background:#f5f7fb;
+}
+
+/* =============================
+   TOP HEADER – magical
+   ============================= */
+
+header{
+    background:rgba(255,255,255,0.55);
+    backdrop-filter:blur(10px);
+    color:#312e81;
+    padding:12px 20px;
+    font-size:20px;
+    font-weight:700;
+    border-bottom:1px solid rgba(255,255,255,0.6);
+    box-shadow:0 6px 18px rgba(99,102,241,0.18);
+}
+
+/* ---------------- START SCREEN ---------------- */
+
+#startScreen{
+    position:fixed;
+    inset:0;
+    overflow:hidden;
+    background:#020617;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    color:white;
+    z-index:10;
+}
+
+.magic-bg{
+    position:absolute;
+    inset:-35%;
+    background:
+        radial-gradient(circle at 20% 30%, rgba(99,102,241,0.85) 0%, transparent 45%),
+        radial-gradient(circle at 80% 25%, rgba(34,211,238,0.8) 0%, transparent 45%),
+        radial-gradient(circle at 55% 80%, rgba(167,139,250,0.8) 0%, transparent 45%);
+    filter: blur(70px);
+    animation: drift 16s ease-in-out infinite alternate;
+}
+
+.magic-wave{
+    position:absolute;
+    inset:0;
+    background:
+        linear-gradient(120deg,
+            rgba(99,102,241,0.35),
+            rgba(34,211,238,0.30),
+            rgba(167,139,250,0.35)
+        );
+    background-size:300% 300%;
+    mix-blend-mode:screen;
+    animation: waveMove 14s linear infinite;
+}
+
+#sparkLayer{
+    position:absolute;
+    inset:0;
+    overflow:hidden;
+    pointer-events:none;
+}
+
+.spark{
+    position:absolute;
+    width:5px;
+    height:5px;
+    border-radius:50%;
+    background:white;
+    box-shadow:
+        0 0 8px white,
+        0 0 14px #60a5fa,
+        0 0 22px #818cf8;
+    opacity:0.95;
+    animation: sparkle 7s linear infinite;
+}
+
+@keyframes drift{
+    from{ transform:translate(-80px,-60px) scale(1); }
+    to{ transform:translate(80px,60px) scale(1.15); }
+}
+
+@keyframes waveMove{
+    0%{background-position:0% 50%;}
+    50%{background-position:100% 50%;}
+    100%{background-position:0% 50%;}
+}
+
+@keyframes sparkle{
+    from{transform:translateY(110vh) scale(.4);opacity:0;}
+    15%{opacity:1;}
+    to{transform:translateY(-20vh) scale(1.1);opacity:0;}
+}
+
+#startScreen h1{margin:0;font-size:34px;z-index:2;}
+#startScreen p{max-width:520px;text-align:center;opacity:.9;margin:14px 0 24px 0;z-index:2;}
+
+#startBtn{
+    padding:12px 28px;
+    font-size:16px;
+    border:none;
+    border-radius:8px;
+    background:linear-gradient(135deg,#6366f1,#22d3ee);
+    color:white;
+    cursor:pointer;
+    z-index:2;
+    box-shadow:0 10px 30px rgba(99,102,241,.35);
+}
+
+.fadeOut{animation:fadeOut .6s ease forwards;}
+@keyframes fadeOut{to{opacity:0;pointer-events:none;}}
+
+/* ---------------- main UI ---------------- */
+
+/* =============================
+   TREE SELECT BAR – magical
+   ============================= */
+
+#topbar{
+    background:rgba(255,255,255,0.65);
+    backdrop-filter:blur(12px);
+    padding:10px 20px;
+    border-bottom:1px solid rgba(255,255,255,0.6);
+    display:flex;
+    align-items:center;
+    gap:10px;
+    color:#312e81;
+    box-shadow:0 8px 20px rgba(99,102,241,0.12);
+}
+
+/* dropdown */
+#topbar select{
+    background:linear-gradient(135deg,#eef2ff,#fdf2f8);
+    border:1px solid #c7d2fe;
+    border-radius:10px;
+    color:#312e81;
+    font-weight:600;
+    padding:6px 12px;
+    outline:none;
+}
+
+/* main layout */
+
+#mainArea{
+    display:flex;
+    height:calc(100vh - 95px);
+}
+
+#frameBox{flex:1;}
+
+/* =============================
+   HOW TO USE / HELP PANEL
+   ============================= */
+
+#helpPanel{
+    width:280px;
+    background:rgba(255,255,255,0.65);
+    backdrop-filter:blur(14px);
+    border-left:1px solid rgba(255,255,255,0.6);
+    padding:12px 14px;
+    font-size:13px;
+    color:#312e81;
+    box-shadow:-10px 0 28px rgba(99,102,241,0.12);
+}
+
+#helpPanel h3{
+    margin-top:0;
+    font-size:15px;
+    color:#4f46e5;
+    font-weight:700;
+}
+
+#helpPanel ul{
+    padding-left:18px;
+    margin:6px 0;
+}
+
+iframe{
+    width:100%;
+    height:100%;
+    border:none;
+}
+</style>
+</head>
+
+<body>
+
+<div id="startScreen">
+    <div class="magic-bg"></div>
+    <div class="magic-wave"></div>
+    <div id="sparkLayer"></div>
+
+    <h1>Visual Data Structure Laboratory</h1>
+    <p>Interactive visualization of advanced tree based data structures.</p>
+    <button id="startBtn">Start Lab</button>
+</div>
+
+<header>Visual Data-Structure Performance Laboratory</header>
+
+<div id="topbar" style="display:none">
+    <b>Select Tree :</b>
+    <select id="treeSelect">
+        <option value="avl_bst.html">AVL / BST</option>
+        <option value="rbt.html">Red-Black Tree</option>
+        <option value="splay.html">Splay Tree</option>
+        <option value="btree.html">B-Tree</option>
+        <option value="treap.html">Treap</option>
+        <option value="bplustree.html">B+ Tree</option>
+        <option value="segmenttree.html">Segment Tree</option>
+        <option value="quadtree.html">Quad Tree</option>
+        <option value="rtree.html">R-Tree</option>
+    </select>
+</div>
+
+<div id="mainArea" style="display:none">
+
+    <div id="frameBox">
+        <iframe id="labFrame" src="avl_bst.html"></iframe>
+    </div>
+
+    <div id="helpPanel">
+
+        <h3>How to use</h3>
+        <div style="line-height:1.5;margin-bottom:10px">
+            1. Select a tree from the dropdown.<br>
+            2. Enter a value in the input box.<br>
+            3. Click Insert / Search / Delete.<br>
+            4. Observe animation and statistics.<br>
+            5. Switch tree to compare behaviour.
+        </div>
+
+        <hr>
+
+        <h3 id="helpTitle"></h3>
+        <div id="helpText"></div>
+
+    </div>
+
+</div>
+
+<script>
+
+const sparkLayer=document.getElementById("sparkLayer");
+for(let i=0;i<70;i++){
+    const s=document.createElement("div");
+    s.className="spark";
+    s.style.left=Math.random()*100+"%";
+    s.style.top=Math.random()*100+"%";
+    s.style.animationDelay=Math.random()*6+"s";
+    s.style.animationDuration=(5+Math.random()*6)+"s";
+    sparkLayer.appendChild(s);
+}
+
+const startBtn=document.getElementById("startBtn");
+const startScreen=document.getElementById("startScreen");
+const topbar=document.getElementById("topbar");
+const mainArea=document.getElementById("mainArea");
+
+startBtn.onclick=()=>{
+    startScreen.classList.add("fadeOut");
+    setTimeout(()=>{
+        startScreen.style.display="none";
+        topbar.style.display="flex";
+        mainArea.style.display="flex";
+    },550);
+};
+
+const sel=document.getElementById("treeSelect");
+const frame=document.getElementById("labFrame");
+const helpTitle=document.getElementById("helpTitle");
+const helpText=document.getElementById("helpText");
+
+const helpInfo={
+
+"avl_bst.html":{
+title:"AVL / BST",
+text:`
+<b>Purpose</b><br>Binary Search Tree and self-balancing AVL Tree.<br><br>
+<b>Operations</b>
+<ul><li>Insert</li><li>Search</li><li>Delete</li></ul>
+<b>Time Complexity</b>
+<ul><li>Insert : O(log n)</li><li>Search : O(log n)</li><li>Delete : O(log n)</li></ul>
+`
+},
+
+"rbt.html":{
+title:"Red-Black Tree",
+text:`
+<b>Purpose</b><br>Self-balancing BST using colors.<br><br>
+<b>Operations</b>
+<ul><li>Insert</li><li>Search</li></ul>
+<b>Time Complexity</b>
+<ul><li>Insert : O(log n)</li><li>Search : O(log n)</li></ul>
+`
+},
+
+"splay.html":{
+title:"Splay Tree",
+text:`
+<b>Purpose</b><br>Self-adjusting tree.<br><br>
+<b>Operations</b>
+<ul><li>Insert</li><li>Search</li></ul>
+<b>Time Complexity</b>
+<ul><li>Insert : Amortized O(log n)</li><li>Search : Amortized O(log n)</li></ul>
+`
+},
+
+"btree.html":{
+title:"B-Tree",
+text:`
+<b>Purpose</b><br>Multi-key balanced tree for databases.<br><br>
+<b>Operations</b>
+<ul><li>Insert</li><li>Search</li></ul>
+<b>Time Complexity</b>
+<ul><li>Insert : O(log n)</li><li>Search : O(log n)</li></ul>
+`
+},
+
+"treap.html":{
+title:"Treap",
+text:`
+<b>Purpose</b><br>BST + Heap structure.<br><br>
+<b>Operations</b>
+<ul><li>Insert</li><li>Search</li><li>Delete</li></ul>
+<b>Time Complexity</b>
+<ul><li>Insert : Expected O(log n)</li>
+<li>Search : Expected O(log n)</li>
+<li>Delete : Expected O(log n)</li></ul>
+`
+},
+
+"bplustree.html":{
+title:"B+ Tree",
+text:`
+<b>Purpose</b><br>Database indexing tree.<br><br>
+<b>Operations</b>
+<ul><li>Insert</li><li>Search</li></ul>
+<b>Time Complexity</b>
+<ul><li>Insert : O(log n)</li><li>Search : O(log n)</li></ul>
+`
+},
+
+"segmenttree.html":{
+title:"Segment Tree",
+text:`
+<b>Purpose</b><br>Range query tree.<br><br>
+<b>Operations</b>
+<ul><li>Build</li><li>Query</li><li>Update</li></ul>
+<b>Time Complexity</b>
+<ul><li>Build : O(n)</li><li>Query : O(log n)</li><li>Update : O(log n)</li></ul>
+`
+},
+
+"quadtree.html":{
+title:"Quad Tree",
+text:`
+<b>Purpose</b><br>2D spatial indexing.<br><br>
+<b>Time Complexity</b>
+<ul><li>Insert : Average O(log n)</li><li>Search : Average O(log n)</li></ul>
+`
+},
+
+"rtree.html":{
+title:"R-Tree",
+text:`
+<b>Purpose</b><br>Spatial indexing for regions.<br><br>
+<b>Time Complexity</b>
+<ul><li>Insert : O(log n)</li><li>Search : O(log n)</li></ul>
+`
+}
+
+};
+
+function updateHelp(page){
+    const info=helpInfo[page];
+    helpTitle.innerHTML=info.title;
+    helpText.innerHTML=info.text;
+}
+
+updateHelp("avl_bst.html");
+
+sel.onchange=()=>{
+    frame.src=sel.value;
+    updateHelp(sel.value);
+};
+
+</script>
+
+</body>
+</html>

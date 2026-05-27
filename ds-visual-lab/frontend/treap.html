@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Visual DSA Lab – Treap</title>
+
+<style>
+/* ✨ Magical / dreamy pastel theme – ONLY CSS changed */
+
+body{
+    margin:0;
+    font-family:Arial;
+    background:linear-gradient(135deg,#fde2f3,#e0e7ff,#dcfce7);
+    background-attachment:fixed;
+}
+
+/* Glass header */
+header{
+    background:rgba(255,255,255,0.45);
+    backdrop-filter:blur(10px);
+    color:#312e81;
+    padding:12px 20px;
+    font-size:20px;
+    font-weight:bold;
+    border-bottom:1px solid rgba(255,255,255,0.6);
+}
+
+#container{
+    display:flex;
+    height:calc(100vh - 50px);
+}
+
+/* Glass panels */
+#leftPanel,
+#rightPanel{
+    background:rgba(255,255,255,0.65);
+    backdrop-filter:blur(12px);
+    padding:15px;
+    border:1px solid rgba(255,255,255,0.6);
+    box-shadow:0 12px 30px rgba(99,102,241,0.15);
+}
+
+#leftPanel{
+    width:250px;
+    border-right:none;
+}
+
+#rightPanel{
+    width:260px;
+    border-left:none;
+}
+
+/* Dreamy center panel */
+#centerPanel{
+    flex:1;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    background:radial-gradient(circle at top,#ffffffcc,#eef2ff,#fdf2f8);
+}
+
+/* Inputs */
+input{
+    width:100%;
+    padding:8px;
+    margin-top:8px;
+    border-radius:10px;
+    border:1px solid #c7d2fe;
+    background:rgba(255,255,255,0.85);
+    outline:none;
+}
+
+/* Magical buttons */
+button{
+    width:100%;
+    padding:9px;
+    margin-top:10px;
+    border-radius:12px;
+    border:none;
+    background:linear-gradient(135deg,#a5b4fc,#fbcfe8);
+    color:#312e81;
+    font-weight:700;
+    cursor:pointer;
+    box-shadow:0 6px 18px rgba(139,92,246,0.35);
+    transition:all 0.25s ease;
+}
+
+button:hover{
+    transform:translateY(-2px) scale(1.02);
+    box-shadow:0 10px 26px rgba(139,92,246,0.45);
+}
+
+/* Stats cards */
+.stat{
+    margin-bottom:10px;
+    padding:10px;
+    border-radius:12px;
+    background:linear-gradient(135deg,#eef2ff,#fdf2f8);
+    box-shadow:0 4px 12px rgba(0,0,0,0.08);
+    color:#312e81;
+    font-weight:600;
+}
+
+/* Magical SVG canvas */
+#svgCanvas{
+    border:2px dashed #c7d2fe;
+    background:linear-gradient(180deg,#ffffff,#fdf4ff);
+    border-radius:18px;
+    box-shadow:
+        inset 0 0 25px rgba(167,139,250,0.15),
+        0 15px 35px rgba(99,102,241,0.18);
+}
+</style>
+</head>
+
+<body>
+
+<header>Visual Data-Structure Performance Laboratory – Treap</header>
+
+<div id="container">
+
+<div id="leftPanel">
+<h3>Operations</h3>
+<input type="number" id="valueBox" placeholder="Enter value">
+<button id="insertBtn">Insert</button>
+<button id="searchBtn">Search</button>
+<button id="deleteBtn">Delete</button>
+</div>
+
+<div id="centerPanel">
+<svg id="svgCanvas" width="90%" height="90%"></svg>
+</div>
+
+<div id="rightPanel">
+<h3>Statistics</h3>
+<div class="stat">Node visits : <span id="visit">0</span></div>
+<div class="stat">Height : <span id="height">0</span></div>
+</div>
+
+</div>
+
+<script>
+
+/* ✅ Your original JavaScript – unchanged */
+
+const svg = document.getElementById("svgCanvas");
+const R = 18;
+
+const visit = document.getElementById("visit");
+const heightBox = document.getElementById("height");
+
+let root = null;
+
+let path = [];
+let highlightIndex = -1;
+let playToken = 0;
+
+/* ---------------- Node ---------------- */
+
+function Node(k){
+    this.key = k;
+    this.pr = Math.random();
+    this.left = null;
+    this.right = null;
+    this.x = 0;
+    this.y = 0;
+}
+
+/* ---------------- helpers ---------------- */
+
+function height(n){
+    if(!n) return 0;
+    return 1 + Math.max(height(n.left), height(n.right));
+}
+
+/* ---------------- rotations ---------------- */
+
+function rotateRight(y){
+    let x = y.left;
+    y.left = x.right;
+    x.right = y;
+    return x;
+}
+
+function rotateLeft(x){
+    let y = x.right;
+    x.right = y.left;
+    y.left = x;
+    return y;
+}
+
+/* ---------------- insert ---------------- */
+
+function insertTreap(n, k, p){
+
+    if(!n){
+        let t = new Node(k);
+        p.push(t);
+        return t;
+    }
+
+    p.push(n);
+
+    if(k < n.key){
+        n.left = insertTreap(n.left, k, p);
+        if(n.left.pr < n.pr)
+            n = rotateRight(n);
+    }
+    else if(k > n.key){
+        n.right = insertTreap(n.right, k, p);
+        if(n.right.pr < n.pr)
+            n = rotateLeft(n);
+    }
+
+    return n;
+}
+
+/* ---------------- delete ---------------- */
+
+function deleteTreap(n, k, p){
+
+    if(!n) return n;
+
+    p.push(n);
+
+    if(k < n.key)
+        n.left = deleteTreap(n.left, k, p);
+
+    else if(k > n.key)
+        n.right = deleteTreap(n.right, k, p);
+
+    else{
+
+        if(!n.left) return n.right;
+        if(!n.right) return n.left;
+
+        if(n.left.pr < n.right.pr){
+            n = rotateRight(n);
+            n.right = deleteTreap(n.right, k, p);
+        }else{
+            n = rotateLeft(n);
+            n.left = deleteTreap(n.left, k, p);
+        }
+    }
+
+    return n;
+}
+
+/* ---------------- search ---------------- */
+
+function searchTreap(n, k, p){
+
+    if(!n) return;
+
+    p.push(n);
+
+    if(k === n.key) return;
+
+    if(k < n.key) searchTreap(n.left, k, p);
+    else searchTreap(n.right, k, p);
+}
+
+/* ---------------- layout ---------------- */
+
+function layout(n, d, minX, maxX){
+
+    if(!n) return;
+
+    n.x = (minX + maxX)/2;
+    n.y = d*80 + 50;
+
+    layout(n.left , d+1, minX, n.x);
+    layout(n.right, d+1, n.x, maxX);
+}
+
+/* ---------------- drawing ---------------- */
+
+function drawLine(x1,y1,x2,y2){
+
+    const dx=x2-x1, dy=y2-y1;
+    const dist=Math.sqrt(dx*dx+dy*dy);
+    if(!dist) return;
+
+    const sx=x1+dx*R/dist, sy=y1+dy*R/dist;
+    const ex=x2-dx*R/dist, ey=y2-dy*R/dist;
+
+    const l=document.createElementNS("http://www.w3.org/2000/svg","line");
+    l.setAttribute("x1",sx);
+    l.setAttribute("y1",sy);
+    l.setAttribute("x2",ex);
+    l.setAttribute("y2",ey);
+    l.setAttribute("stroke","#555");
+    svg.appendChild(l);
+}
+
+function highlighted(n){
+    if(highlightIndex < 0) return false;
+    return path.slice(0, highlightIndex + 1).includes(n);
+}
+
+function draw(n){
+
+    if(!n) return;
+
+    if(n.left) drawLine(n.x,n.y,n.left.x,n.left.y);
+    if(n.right) drawLine(n.x,n.y,n.right.x,n.right.y);
+
+    draw(n.left);
+    draw(n.right);
+
+    if(highlighted(n)){
+        const ring=document.createElementNS("http://www.w3.org/2000/svg","circle");
+        ring.setAttribute("cx",n.x);
+        ring.setAttribute("cy",n.y);
+        ring.setAttribute("r",R+7);
+        ring.setAttribute("fill","none");
+        ring.setAttribute("stroke","#6366f1");
+        ring.setAttribute("stroke-width","4");
+        svg.appendChild(ring);
+    }
+
+    const c=document.createElementNS("http://www.w3.org/2000/svg","circle");
+    c.setAttribute("cx",n.x);
+    c.setAttribute("cy",n.y);
+    c.setAttribute("r",R);
+    c.setAttribute("fill","#4f46e5");
+
+    const t=document.createElementNS("http://www.w3.org/2000/svg","text");
+    t.setAttribute("x",n.x);
+    t.setAttribute("y",n.y+5);
+    t.setAttribute("text-anchor","middle");
+    t.setAttribute("fill","white");
+    t.setAttribute("font-size","12");
+    t.textContent=n.key;
+
+    svg.appendChild(c);
+    svg.appendChild(t);
+}
+
+function redraw(){
+    svg.innerHTML="";
+    layout(root,0,50,svg.clientWidth-50);
+    draw(root);
+    heightBox.textContent = height(root);
+}
+
+/* ---------------- animation ---------------- */
+
+function play(){
+
+    playToken++;
+    const my = playToken;
+
+    highlightIndex = -1;
+
+    function step(){
+
+        if(my !== playToken) return;
+
+        highlightIndex++;
+
+        if(highlightIndex >= path.length){
+            setTimeout(()=>{
+                highlightIndex = -1;
+                redraw();
+            },300);
+            return;
+        }
+
+        redraw();
+        setTimeout(step,300);
+    }
+
+    step();
+}
+
+/* ---------------- UI ---------------- */
+
+insertBtn.onclick=()=>{
+
+    let v=parseInt(valueBox.value);
+    if(isNaN(v)) return;
+
+    path=[];
+    root = insertTreap(root, v, path);
+
+    visit.textContent = path.length;
+
+    redraw();
+    play();
+};
+
+searchBtn.onclick=()=>{
+
+    let v=parseInt(valueBox.value);
+    if(isNaN(v)) return;
+
+    path=[];
+    searchTreap(root, v, path);
+
+    visit.textContent = path.length;
+
+    redraw();
+    play();
+};
+
+deleteBtn.onclick=()=>{
+
+    let v=parseInt(valueBox.value);
+    if(isNaN(v)) return;
+
+    path=[];
+    root = deleteTreap(root, v, path);
+
+    visit.textContent = path.length;
+
+    redraw();
+    play();
+};
+
+</script>
+
+</body>
+</html>
